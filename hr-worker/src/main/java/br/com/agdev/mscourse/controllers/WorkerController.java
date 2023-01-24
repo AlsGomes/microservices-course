@@ -3,6 +3,8 @@ package br.com.agdev.mscourse.controllers;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +16,7 @@ import br.com.agdev.mscourse.entities.Worker;
 import br.com.agdev.mscourse.repositories.WorkerRepository;
 import lombok.extern.slf4j.Slf4j;
 
+@RefreshScope
 @Slf4j
 @RestController
 @RequestMapping("/workers")
@@ -24,7 +27,16 @@ public class WorkerController {
 
 	@Autowired
 	private Environment env;
+	
+	@Value("${test.config}")
+	private String testConfig;
 
+	@GetMapping("/configs")
+	public ResponseEntity<Void> getConfigs() {
+		log.info("CONFIG=" + testConfig);
+		return ResponseEntity.noContent().build();
+	}
+	
 	@GetMapping
 	public ResponseEntity<List<Worker>> findAll() {
 		List<Worker> list = repository.findAll();
