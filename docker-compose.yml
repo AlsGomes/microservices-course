@@ -1,0 +1,98 @@
+version: "3.9"
+
+networks:
+  hr-network:
+    driver: bridge
+
+services:
+  hr-worker-pg12:
+    image: postgres:12-alpine
+    env_file:
+      - .env.hr-worker-pg12.prod
+    ports:
+      - "5432:5432"
+    networks:
+      - hr-network
+    container_name: hr-worker-pg12
+
+  hr-user-pg12:
+    image: postgres:12-alpine
+    env_file:
+      - .env.hr-user-pg12.prod
+    ports:
+      - "5433:5433"
+    networks:
+      - hr-network
+    container_name: hr-user-pg12
+    command: -p 5433
+
+  hr-config-server:
+    build: ./hr-config-server
+    image: hr-config-server:v1
+    env_file:
+      - .env.hr-config-server.prod
+    ports:
+      - "8888:8888"
+    networks:
+      - hr-network
+    container_name: hr-config-server
+
+  hr-eureka-server:
+    build: ./hr-eureka-server
+    image: hr-eureka-server:v1
+    ports:
+      - "8761:8761"
+    networks:
+      - hr-network
+    container_name: hr-eureka-server
+    depends_on:
+      - hr-config-server
+    command: ["/wait-for-it.sh", "hr-config-server:8888", "-t", "45", "--", "java", "-jar", "hr-eureka-server.jar"]
+
+  hr-api-gateway-zuul:
+    build: ./hr-api-gateway-zuul
+    image: hr-api-gateway-zuul:v1
+    ports:
+      - "8765:8765"
+    networks:
+      - hr-network
+    container_name: hr-api-gateway-zuul
+    depends_on:
+      - hr-eureka-server
+    command: ["/wait-for-it.sh", "hr-eureka-server:8761", "-t", "45", "--", "java", "-jar", "hr-api-gateway-zuul.jar"]
+
+  hr-worker:
+    build: ./hr-worker
+    image: hr-worker:v1
+    networks:
+      - hr-network
+    depends_on:
+      - hr-eureka-server
+    command: ["/wait-for-it.sh", "hr-eureka-server:8761", "-t", "45", "--", "java", "-jar", "hr-worker.jar"]
+
+  hr-user:
+    build: ./hr-user
+    image: hr-user:v1
+    networks:
+      - hr-network
+    depends_on:
+      - hr-eureka-server
+    command: ["/wait-for-it.sh", "hr-eureka-server:8761", "-t", "45", "--", "java", "-jar", "hr-user.jar"]
+  
+  hr-payroll:
+    build: ./hr-payroll
+    image: hr-payroll:v1
+    networks:
+      - hr-network
+    depends_on:
+      - hr-eureka-server
+    command: ["/wait-for-it.sh", "hr-eureka-server:8761", "-t", "45", "--", "java", "-jar", "hr-payroll.jar"]
+
+  hr-oauth:
+    build: ./hr-oauth
+    image: hr-oauth:v1
+    networks:
+      - hr-network
+    depends_on:
+      - hr-eureka-server
+    command: ["/wait-for-it.sh", "hr-eureka-server:8761", "-t", "45", "--", "java", "-jar", "hr-oauth.jar"]
